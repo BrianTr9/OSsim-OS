@@ -1,0 +1,66 @@
+# Assignment & Documentation
+assignment.txt
+
+# Build artifacts
+obj/
+*.o
+*.a
+*.so
+*.dylib
+
+# Executables
+os
+*.exe
+*.out
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# Compilation
+*.dSYM/
+*.su
+*.gch
+*.pch
+
+# Debug
+.gdb_history
+*.debug
+
+# Temp files
+.tmp/
+temp/
+*.bak
+*.orig
+
+# Test outputs (keep input/, but ignore runtime outputs)
+test.out
+/tmp/
+*.output.tmp
+
+# Dependencies (if any)
+.deps/
+*.d
+
+# CMake/Autotools
+CMakeFiles/
+Makefile.in
+configure
+autom4te.cache/
+
+# Python cache (if any scripts)
+__pycache__/
+*.pyc
+*.pyo
+
+# OS-specific
+Thumbs.db
+.AppleDouble
+.LSOverride
+._*
