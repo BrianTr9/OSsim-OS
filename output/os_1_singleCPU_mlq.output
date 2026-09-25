@@ -8,8 +8,8 @@ Time slot   2
 Time slot   3
 Time slot   4
 	CPU 0: Put process  1 to run queue
-	Loaded a process at input/proc/m1s, PID: 3 PRIO: 2
 	CPU 0: Dispatched process  2
+	Loaded a process at input/proc/m1s, PID: 3 PRIO: 2
 Time slot   5
 Time slot   6
 	CPU 0: Put process  2 to run queue
@@ -156,19 +156,19 @@ Time slot  48
 ===== PHYSICAL MEMORY AFTER ALLOCATION =====
 PID=5 - Region=0 - Address=00000000 - Size=300 byte
 print_pgtbl: 0 - 512
-00000000: 80000003
-00000004: 80000002
-Page Number: 0 -> Frame Number: 3
-Page Number: 1 -> Frame Number: 2
+00000000: 80000001
+00000004: 80000000
+Page Number: 0 -> Frame Number: 1
+Page Number: 1 -> Frame Number: 0
 ================================================================
 Time slot  49
 ===== PHYSICAL MEMORY AFTER ALLOCATION =====
 PID=5 - Region=1 - Address=0000012c - Size=100 byte
 print_pgtbl: 0 - 512
-00000000: 80000003
-00000004: 80000002
-Page Number: 0 -> Frame Number: 3
-Page Number: 1 -> Frame Number: 2
+00000000: 80000001
+00000004: 80000000
+Page Number: 0 -> Frame Number: 1
+Page Number: 1 -> Frame Number: 0
 ================================================================
 Time slot  50
 	CPU 0: Put process  5 to run queue
@@ -184,19 +184,19 @@ Time slot  54
 ===== PHYSICAL MEMORY AFTER DEALLOCATION =====
 PID=5 - Region=0
 print_pgtbl: 0 - 512
-00000000: 80000003
-00000004: 80000002
-Page Number: 0 -> Frame Number: 3
-Page Number: 1 -> Frame Number: 2
+00000000: 80000001
+00000004: 80000000
+Page Number: 0 -> Frame Number: 1
+Page Number: 1 -> Frame Number: 0
 ================================================================
 Time slot  55
 ===== PHYSICAL MEMORY AFTER ALLOCATION =====
 PID=5 - Region=2 - Address=00000000 - Size=100 byte
 print_pgtbl: 0 - 512
-00000000: 80000003
-00000004: 80000002
-Page Number: 0 -> Frame Number: 3
-Page Number: 1 -> Frame Number: 2
+00000000: 80000001
+00000004: 80000000
+Page Number: 0 -> Frame Number: 1
+Page Number: 1 -> Frame Number: 0
 ================================================================
 Time slot  56
 	CPU 0: Put process  5 to run queue
@@ -212,29 +212,16 @@ Time slot  60
 ===== PHYSICAL MEMORY AFTER WRITING =====
 write region=1 offset=20 value=102
 print_pgtbl: 0 - 512
-00000000: 80000003
-00000004: 80000002
-Page Number: 0 -> Frame Number: 3
-Page Number: 1 -> Frame Number: 2
+00000000: 80000001
+00000004: 80000000
+Page Number: 0 -> Frame Number: 1
+Page Number: 1 -> Frame Number: 0
 ================================================================
 ===== PHYSICAL MEMORY DUMP =====
-BYTE 00000240: 102
+BYTE 00000040: 102
 ===== PHYSICAL MEMORY END-DUMP =====
 ================================================================
 Time slot  61
-===== PHYSICAL MEMORY AFTER WRITING =====
-write region=2 offset=1000 value=1
-print_pgtbl: 0 - 512
-00000000: c0000000
-00000004: 80000002
-Page Number: 0 -> Frame Number: 0
-Page Number: 1 -> Frame Number: 2
-================================================================
-===== PHYSICAL MEMORY DUMP =====
-BYTE 00000240: 102
-BYTE 000003e8: 1
-===== PHYSICAL MEMORY END-DUMP =====
-================================================================
 Time slot  62
 	CPU 0: Processed  5 has finished
 	CPU 0: Dispatched process  2

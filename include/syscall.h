@@ -8,6 +8,9 @@
  * for the sole purpose of studying while attending the course CO2018.
  */
 
+#ifndef SYSCALL_H
+#define SYSCALL_H
+
 #include "common.h"
 
 struct sc_regs {
@@ -38,3 +41,4 @@ int syscall(struct pcb_t*, uint32_t, struct sc_regs*);
 int libsyscall(struct pcb_t*, uint32_t, uint32_t, uint32_t, uint32_t);
 int __sys_ni_syscall(struct pcb_t*, struct sc_regs*);
 
+#endif

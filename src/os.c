@@ -4,6 +4,7 @@
 #include "sched.h"
 #include "loader.h"
 #include "mm.h"
+#include "libmem.h"
 
 #include <pthread.h>
 #include <stdio.h>
@@ -60,11 +61,20 @@ static void * cpu_routine(void * args) {
                            next_slot(timer_id);
                            continue; /* First load failed. skip dummy load */
                         }
+		}else if (__atomic_load_n(&proc->killed, __ATOMIC_SEQ_CST)) {
+			/* The process has been terminated by killall */
+			printf("\tCPU %d: Processed %2d has been killed\n",
+				id ,proc->pid);
+			finish_proc(proc);
+			free_pcb(proc);
+			proc = get_proc();
+			time_left = 0;
 		}else if (proc->pc == proc->code->size) {
 			/* The porcess has finish it job */
 			printf("\tCPU %d: Processed %2d has finished\n",
 				id ,proc->pid);
-			free(proc);
+			finish_proc(proc);
+			free_pcb(proc);
 			proc = get_proc();
 			time_left = 0;
 		}else if (time_left == 0) {
@@ -105,6 +115,7 @@ static void * ld_routine(void * args) {
 	struct memphy_struct* mram = ((struct mmpaging_ld_args *)args)->mram;
 	struct memphy_struct** mswp = ((struct mmpaging_ld_args *)args)->mswp;
 	struct memphy_struct* active_mswp = ((struct mmpaging_ld_args *)args)->active_mswp;
+	int active_mswp_id = ((struct mmpaging_ld_args *)args)->active_mswp_id;
 	struct timer_id_t * timer_id = ((struct mmpaging_ld_args *)args)->timer_id;
 #else
 	struct timer_id_t * timer_id = (struct timer_id_t*)args;
@@ -125,6 +136,7 @@ static void * ld_routine(void * args) {
 		proc->mram = mram;
 		proc->mswp = mswp;
 		proc->active_mswp = active_mswp;
+		proc->active_mswp_id = active_mswp_id;
 #endif
 		printf("\tLoaded a process at %s, PID: %d PRIO: %ld\n",
 			ld_processes.path[i], proc->pid, ld_processes.prio[i]);
@@ -135,6 +147,9 @@ static void * ld_routine(void * args) {
 	}
 	free(ld_processes.path);
 	free(ld_processes.start_time);
+#ifdef MLQ_SCHED
+	free(ld_processes.prio);
+#endif
 	done = 1;
 	detach_event(timer_id);
 	pthread_exit(NULL);
@@ -146,33 +161,45 @@ static void read_config(const char * path) {
 		printf("Cannot find configure file at %s\n", path);
 		exit(1);
 	}
-	fscanf(file, "%d %d %d\n", &time_slot, &num_cpus, &num_processes);
+	if (fscanf(file, "%d %d %d\n", &time_slot, &num_cpus, &num_processes) != 3 ||
+	    time_slot <= 0 || num_cpus <= 0 || num_processes <= 0) {
+		printf("Invalid config header in %s\n", path);
+		exit(1);
+	}
 	ld_processes.path = (char**)malloc(sizeof(char*) * num_processes);
 	ld_processes.start_time = (unsigned long*)
 		malloc(sizeof(unsigned long) * num_processes);
 #ifdef MM_PAGING
-	int sit;
-#ifdef MM_FIXED_MEMSZ
-	/* We provide here a back compatible with legacy OS simulatiom config file
-         * In which, it have no addition config line for Mema, keep only one line
-	 * for legacy info 
-         *  [time slice] [N = Number of CPU] [M = Number of Processes to be run]
-         */
-        memramsz    =  0x100000;
-        memswpsz[0] = 0x1000000;
-	for(sit = 1; sit < PAGING_MAX_MMSWP; sit++)
-		memswpsz[sit] = 0;
-#else
-	/* Read input config of memory size: MEMRAM and upto 4 MEMSWP (mem swap)
-	 * Format: (size=0 result non-used memswap, must have RAM and at least 1 SWAP)
+	/* The memory config line is optional:
 	 *        MEM_RAM_SZ MEM_SWP0_SZ MEM_SWP1_SZ MEM_SWP2_SZ MEM_SWP3_SZ
-	*/
-	fscanf(file, "%d\n", &memramsz);
-	for(sit = 0; sit < PAGING_MAX_MMSWP; sit++)
-		fscanf(file, "%d", &(memswpsz[sit])); 
+	 * (size=0 result non-used memswap, must have RAM and at least 1 SWAP)
+	 * Legacy config files (scheduler only) omit it, then the default
+	 * sizes are used: 1MB of RAM and one 16MB SWAP.
+	 */
+	int sit;
+	char line[256];
+	long line_pos = ftell(file);
+	int memsz[1 + PAGING_MAX_MMSWP];
 
-       fscanf(file, "\n"); /* Final character */
-#endif
+	if (fgets(line, sizeof(line), file) != NULL &&
+	    sscanf(line, "%d %d %d %d %d", &memsz[0], &memsz[1], &memsz[2],
+	           &memsz[3], &memsz[4]) == 1 + PAGING_MAX_MMSWP) {
+		memramsz = memsz[0];
+		for(sit = 0; sit < PAGING_MAX_MMSWP; sit++)
+			memswpsz[sit] = memsz[1 + sit];
+	} else {
+		/* Not a memory config line, it is the first process */
+		fseek(file, line_pos, SEEK_SET);
+		memramsz    =  0x100000;
+		memswpsz[0] = 0x1000000;
+		for(sit = 1; sit < PAGING_MAX_MMSWP; sit++)
+			memswpsz[sit] = 0;
+	}
+	if (memramsz < PAGING_PAGESZ || memswpsz[0] < PAGING_PAGESZ) {
+		printf("Invalid memory config: need RAM and SWAP0 >= %d bytes\n",
+			PAGING_PAGESZ);
+		exit(1);
+	}
 #endif
 
 #ifdef MLQ_SCHED
@@ -182,16 +209,18 @@ static void read_config(const char * path) {
 	int i;
 	for (i = 0; i < num_processes; i++) {
 		ld_processes.path[i] = (char*)malloc(sizeof(char) * 100);
-		ld_processes.path[i][0] = '\0';
-		strcat(ld_processes.path[i], "input/proc/");
-		char proc[100];
+		char proc[64];
 #ifdef MLQ_SCHED
-		fscanf(file, "%lu %s %lu\n", &ld_processes.start_time[i], proc, &ld_processes.prio[i]);
+		if (fscanf(file, "%lu %63s %lu\n", &ld_processes.start_time[i], proc, &ld_processes.prio[i]) != 3) {
 #else
-		fscanf(file, "%lu %s\n", &ld_processes.start_time[i], proc);
+		if (fscanf(file, "%lu %63s\n", &ld_processes.start_time[i], proc) != 2) {
 #endif
-		strcat(ld_processes.path[i], proc);
+			printf("Invalid process line %d in %s\n", i + 1, path);
+			exit(1);
+		}
+		snprintf(ld_processes.path[i], 100, "input/proc/%s", proc);
 	}
+	fclose(file);
 }
 
 int main(int argc, char * argv[]) {
@@ -200,10 +229,8 @@ int main(int argc, char * argv[]) {
 		printf("Usage: os [path to configure file]\n");
 		return 1;
 	}
-	char path[100];
-	path[0] = '\0';
-	strcat(path, "input/");
-	strcat(path, argv[1]);
+	char path[256];
+	snprintf(path, sizeof(path), "input/%s", argv[1]);
 	read_config(path);
 
 	pthread_t * cpu = (pthread_t*)malloc(num_cpus * sizeof(pthread_t));
@@ -226,21 +253,24 @@ int main(int argc, char * argv[]) {
 
 	struct memphy_struct mram;
 	struct memphy_struct mswp[PAGING_MAX_MMSWP];
+	struct memphy_struct *mswp_list[PAGING_MAX_MMSWP];
 
 	/* Create MEM RAM */
 	init_memphy(&mram, memramsz, rdmflag);
 
         /* Create all MEM SWAP */ 
 	int sit;
-	for(sit = 0; sit < PAGING_MAX_MMSWP; sit++)
+	for(sit = 0; sit < PAGING_MAX_MMSWP; sit++) {
 	       init_memphy(&mswp[sit], memswpsz[sit], rdmflag);
+	       mswp_list[sit] = &mswp[sit];
+	}
 
 	/* In Paging mode, it needs passing the system mem to each PCB through loader*/
 	struct mmpaging_ld_args *mm_ld_args = malloc(sizeof(struct mmpaging_ld_args));
 
 	mm_ld_args->timer_id = ld_event;
 	mm_ld_args->mram = (struct memphy_struct *) &mram;
-	mm_ld_args->mswp = (struct memphy_struct**) &mswp;
+	mm_ld_args->mswp = mswp_list;
 	mm_ld_args->active_mswp = (struct memphy_struct *) &mswp[0];
         mm_ld_args->active_mswp_id = 0;
 #endif

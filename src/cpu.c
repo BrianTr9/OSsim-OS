@@ -90,7 +90,12 @@ switch (ins.opcode)
 		break;
 	case READ:
 #ifdef MM_PAGING
-		stat = libread(proc, ins.arg_0, ins.arg_1, &ins.arg_2);
+	{
+		uint32_t data;
+		stat = libread(proc, ins.arg_0, ins.arg_1, &data);
+		if (stat == 0 && ins.arg_2 < sizeof(proc->regs) / sizeof(proc->regs[0]))
+			proc->regs[ins.arg_2] = data;
+	}
 #else
 		stat = read(proc, ins.arg_0, ins.arg_1, ins.arg_2);
 #endif

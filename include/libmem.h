@@ -8,6 +8,9 @@
  * for the sole purpose of studying while attending the course CO2018.
  */
 
+#ifndef LIBMEM_H
+#define LIBMEM_H
+
 #include "common.h"
 
 #define SYSMEM_MAP_OP 1
@@ -23,3 +26,6 @@ int liballoc(struct pcb_t *, uint32_t, uint32_t);
 int libfree(struct pcb_t *, uint32_t);
 int libread(struct pcb_t*, uint32_t, uint32_t, uint32_t*);
 int libwrite(struct pcb_t*, BYTE, uint32_t, uint32_t);
+void free_pcb(struct pcb_t *);
+
+#endif

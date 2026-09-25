@@ -40,7 +40,7 @@
     if (mp == NULL)
        return -1;
  
-    if (!mp->rdmflg)
+    if (mp->rdmflg)
        return -1; /* Not compatible mode for sequential read */
  
     MEMPHY_mv_csr(mp, addr);
@@ -57,7 +57,7 @@
   */
  int MEMPHY_read(struct memphy_struct *mp, int addr, BYTE *value)
  {
-    if (mp == NULL)
+    if (mp == NULL || addr < 0 || addr >= mp->maxsz)
        return -1;
  
     if (mp->rdmflg)
@@ -80,8 +80,8 @@
     if (mp == NULL)
        return -1;
  
-    if (!mp->rdmflg)
-       return -1; /* Not compatible mode for sequential read */
+    if (mp->rdmflg)
+       return -1; /* Not compatible mode for sequential write */
  
     MEMPHY_mv_csr(mp, addr);
     mp->storage[addr] = value;
@@ -97,7 +97,7 @@
   */
  int MEMPHY_write(struct memphy_struct *mp, int addr, BYTE data)
  {
-    if (mp == NULL)
+    if (mp == NULL || addr < 0 || addr >= mp->maxsz)
        return -1;
  
     if (mp->rdmflg)
@@ -125,6 +125,7 @@
     /* Init head of free framephy list */
     fst = malloc(sizeof(struct framephy_struct));
     fst->fpn = iter;
+    fst->fp_next = NULL;
     mp->free_fp_list = fst;
  
     /* We have list with first element, fill in the rest num-1 element member*/

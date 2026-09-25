@@ -12,7 +12,8 @@ void enqueue(struct queue_t * q, struct pcb_t * proc) {
         
         // Check if queue is full
         if (q->size >= MAX_QUEUE_SIZE) {
-                return; // Queue is full, cannot add more processes
+                printf("enqueue: queue is full, process %d dropped\n", proc->pid);
+                return;
         }
         
         // Add process to the end of the queue
@@ -37,4 +38,19 @@ struct pcb_t * dequeue(struct queue_t * q) {
         
         q->size--;
         return proc;
+}
+
+int remove_from_queue(struct queue_t * q, struct pcb_t * proc) {
+        if (q == NULL || proc == NULL) return 0;
+
+        int i;
+        for (i = 0; i < q->size; i++) {
+                if (q->proc[i] == proc) {
+                        for (; i < q->size - 1; i++)
+                                q->proc[i] = q->proc[i + 1];
+                        q->size--;
+                        return 1;
+                }
+        }
+        return 0;
 }

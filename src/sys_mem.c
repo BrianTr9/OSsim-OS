@@ -17,7 +17,7 @@
 int __sys_memmap(struct pcb_t *caller, struct sc_regs* regs)
 {
    int memop = regs->a1;
-   BYTE value;
+   BYTE value = 0;
 
    switch (memop) {
    case SYSMEM_MAP_OP:

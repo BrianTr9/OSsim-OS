@@ -14,7 +14,7 @@ LFLAGS = -Wall $(DEBUG)
 vpath %.c $(SRC)
 vpath %.h $(INCLUDE)
 
-MAKE = $(CC) $(INC) 
+COMPILE = $(CC) $(INC)
 
 # Object files needed by modules
 MEM_OBJ = $(addprefix $(OBJ)/, paging.o mem.o cpu.o loader.o)
@@ -29,11 +29,11 @@ all: os
 
 # Just compile memory management modules
 mem: $(MEM_OBJ)
-	$(MAKE) $(LFLAGS) $(MEM_OBJ) -o mem $(LIB)
+	$(COMPILE) $(LFLAGS) $(MEM_OBJ) -o mem $(LIB)
 
 # Just compile scheduler
 sched: $(SCHED_OBJ)
-	$(MAKE) $(LFLAGS) $(MEM_OBJ) -o sched $(LIB)
+	$(COMPILE) $(LFLAGS) $(MEM_OBJ) -o sched $(LIB)
 
 # Compile syscall
 syscalltbl.lst: $(SRC)/syscall.tbl
@@ -44,14 +44,30 @@ syscalltbl.lst: $(SRC)/syscall.tbl
 
 # Compile the whole OS simulation
 os: $(OBJ) syscalltbl.lst $(OS_OBJ)
-	$(MAKE) $(LFLAGS) $(OS_OBJ) -o os $(LIB)
+	$(COMPILE) $(LFLAGS) $(OS_OBJ) -o os $(LIB)
 
 $(OBJ)/%.o: %.c ${HEADER} $(OBJ)
-	$(MAKE) $(CFLAGS) $< -o $@
+	$(COMPILE) $(CFLAGS) $< -o $@
 
 # Prepare objectives container
 $(OBJ):
 	mkdir -p $(OBJ)
+
+# Run the smoke tests (tests/run_tests.sh)
+test: os
+	tests/run_tests.sh
+
+# Rebuild with AddressSanitizer + UndefinedBehaviorSanitizer and run the tests
+asan: clean
+	$(MAKE) os DEBUG="-g -fsanitize=address,undefined -fno-omit-frame-pointer"
+	tests/run_tests.sh
+
+# Rebuild with ThreadSanitizer and run the tests
+tsan: clean
+	$(MAKE) os DEBUG="-g -fsanitize=thread"
+	TIMEOUT=180 tests/run_tests.sh
+
+.PHONY: all test asan tsan clean
 
 clean:
 	rm -f $(SRC)/*.lst

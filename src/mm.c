@@ -72,6 +72,8 @@ int pte_set_fpn(uint32_t *pte, int fpn)
   SETBIT(*pte, PAGING_PTE_PRESENT_MASK);
   CLRBIT(*pte, PAGING_PTE_SWAPPED_MASK);
 
+  /* Drop the stale swap offset, it overlaps the FPN field */
+  CLRBIT(*pte, PAGING_PTE_SWPOFF_MASK);
   SETVAL(*pte, fpn, PAGING_PTE_FPN_MASK, PAGING_PTE_FPN_LOBIT);
 
   return 0;
@@ -129,7 +131,9 @@ int alloc_pages_range(struct pcb_t *caller, int req_pgnum, struct framephy_struc
 
   for (pgit = 0; pgit < req_pgnum; pgit++)
   {
-    if (MEMPHY_get_freefp(caller->mram, &fpn) == 0)
+    /* RAM is full: evict a page of the caller to swap to reuse its frame */
+    if (MEMPHY_get_freefp(caller->mram, &fpn) == 0 ||
+        __swap_out_page(caller, &fpn) == 0)
     {
       /* Create new node for the allocated frame */
       newfp_str = malloc(sizeof(struct framephy_struct));
@@ -360,7 +364,7 @@ int print_list_pgn(struct pgn_t *ip)
     printf("va[%d]-\n", ip->pgn);
     ip = ip->pg_next;
   }
-  printf("n");
+  printf("\n");
   return 0;
 }
 
@@ -369,9 +373,10 @@ int print_pgtbl(struct pcb_t *caller, uint32_t start, uint32_t end)
   int pgn_start, pgn_end;
   int pgit;
 
+  if (caller == NULL) { printf("NULL caller\n"); return -1;}
+
   if (end == -1)
   {
-    pgn_start = 0;
     struct vm_area_struct *cur_vma = get_vma_by_num(caller->mm, 0);
     end = cur_vma->vm_end;
   }
@@ -379,7 +384,6 @@ int print_pgtbl(struct pcb_t *caller, uint32_t start, uint32_t end)
   pgn_end = PAGING_PGN(end);
 
   printf("print_pgtbl: %d - %d\n", start, end);
-  if (caller == NULL) { printf("NULL caller\n"); return -1;}
   
   /* Print raw page table entries */
   for (pgit = pgn_start; pgit < pgn_end; pgit++)
